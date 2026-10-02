@@ -1,0 +1,40 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users Table
+CREATE TABLE IF NOT EXISTS users (
+    uid VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255),
+    role VARCHAR(32) DEFAULT 'user',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Groups Table
+CREATE TABLE IF NOT EXISTS groups (
+    thread_id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255),
+    prefix VARCHAR(10) DEFAULT '!',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Appstates / Cookies Session Table
+CREATE TABLE IF NOT EXISTS appstates (
+    id SERIAL PRIMARY KEY,
+    account_uid VARCHAR(64) UNIQUE NOT NULL,
+    session_data JSONB NOT NULL,
+    is_valid BOOLEAN DEFAULT true,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Audit / Command Logs Table
+CREATE TABLE IF NOT EXISTS logs (
+    id SERIAL PRIMARY KEY,
+    user_uid VARCHAR(64),
+    thread_id VARCHAR(64),
+    command VARCHAR(100),
+    status VARCHAR(32),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
