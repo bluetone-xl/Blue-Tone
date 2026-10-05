@@ -1,34 +1,85 @@
+import fs from 'fs';
+import path from 'path';
+
+const configPath = path.resolve('data/botConfig.json');
+
 class BotConfig {
   constructor() {
-    this.managementGroupID = process.env.MANAGEMENT_GROUP_ID || null;
-    this.notices = {
-      welcome: 'Welcome to the group!',
-      leave: 'A member has left the group.',
-      groupDestroyStart: 'Initiating non-admin member cleanup...',
-      groupDestroyComplete: 'Group cleanup operation completed.',
-      accessDeniedOwner: '⚠️ Restricted to Bot Owner.',
-      accessDeniedAdmin: '⚠️ Restricted to Group Admins.'
+    this.config = {
+      mcrGroupID: process.env.MANAGEMENT_GROUP_ID || null,
+      notices: {
+        welcome: 'Welcome to the group!',
+        leave: 'A member has left the group.',
+        groupDestroyStart: 'Initiating non-admin member cleanup...',
+        groupDestroyComplete: 'Group cleanup operation completed.',
+        accessDeniedOwner: '⚠️ Restricted to Bot Owner.',
+        accessDeniedAdmin: '⚠️ Restricted to Group Admins.'
+      },
+      socials: {
+        facebook: 'Not set',
+        github: 'Not set',
+        telegram: 'Not set',
+        whatsapp: 'Not set'
+      }
     };
+    this.loadConfig();
   }
 
-  setManagementGroupID(groupID) {
-    this.managementGroupID = groupID;
+  loadConfig() {
+    try {
+      if (fs.existsSync(configPath)) {
+        const rawData = fs.readFileSync(configPath, 'utf8');
+        this.config = { ...this.config, ...JSON.parse(rawData) };
+      } else {
+        this.saveConfig();
+      }
+    } catch (error) {
+      console.error('Error loading bot config:', error);
+    }
+  }
+
+  saveConfig() {
+    try {
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2), 'utf8');
+    } catch (error) {
+      console.error('Error saving bot config:', error);
+    }
   }
 
   getManagementGroupID() {
-    return this.managementGroupID;
+    return this.config.mcrGroupID;
+  }
+
+  setManagementGroupID(id) {
+    this.config.mcrGroupID = id;
+    this.saveConfig();
+  }
+
+  getNotice(key) {
+    return this.config.notices[key] || '';
   }
 
   updateNotice(key, newNotice) {
-    if (this.notices.hasOwnProperty(key)) {
-      this.notices[key] = newNotice;
+    if (this.config.notices.hasOwnProperty(key)) {
+      this.config.notices[key] = newNotice;
+      this.saveConfig();
       return true;
     }
     return false;
   }
 
-  getNotice(key) {
-    return this.notices[key] || '';
+  setSocial(platform, url) {
+    if (!this.config.socials) this.config.socials = {};
+    this.config.socials[platform.toLowerCase()] = url;
+    this.saveConfig();
+  }
+
+  getSocials() {
+    return this.config.socials || {};
   }
 }
 
