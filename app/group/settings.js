@@ -1,5 +1,8 @@
-const DEFAULT_GROUP_SETTINGS = Object.freeze({
-  prefix: '!',
+/**
+ * Default configuration schema for group settings.
+ */
+export const DEFAULT_GROUP_SETTINGS = Object.freeze({
+  prefix: process.env.DEFAULT_PREFIX || '!',
   memberApproval: false,
 
   welcome: true,
@@ -13,14 +16,14 @@ const DEFAULT_GROUP_SETTINGS = Object.freeze({
   warningsEnabled: true
 });
 
-function createGroupSettings(overrides = {}) {
+/**
+ * Creates a complete group settings object with optional overrides.
+ */
+export function createGroupSettings(overrides = {}) {
   return {
     ...DEFAULT_GROUP_SETTINGS,
-    ...overrides
+    ...(overrides && typeof overrides === 'object' ? overrides : {})
   };
 }
 
-module.exports = {
-  DEFAULT_GROUP_SETTINGS,
-  createGroupSettings
-};
+export default createGroupSettings;
