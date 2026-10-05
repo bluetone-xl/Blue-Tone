@@ -5,6 +5,3 @@ node_modules/
 data/
 logs/
 *.log
-appstate.json
-.env
-node_modules/
