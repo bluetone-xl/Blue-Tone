@@ -1,69 +1,75 @@
-import EventRouter from '../events/router.js';
-import ExtensionEventHandler from '../integrations/meta/extension-events.js';
-import RateLimiter from '../security/rate-limiter.js';
+import { Logger } from './logger.js';
+import db from './database.js';
+import sessionManager from '../integrations/meta/session-manager.js';
+import FBClient from '../integrations/meta/fb-client.js';
+import MessengerAdapter from '../integrations/meta/messenger-adapter.js';
+import EventListener from '../integrations/meta/event-listener.js';
 
-export class BotRuntime {
+/**
+ * Main Application Runtime Kernel orchestrating services, databases, and FB clients.
+ */
+export class Runtime {
   constructor() {
-    try {
-      this.commands = new Map();
-      this.rateLimiter = new RateLimiter();
-      
-      // Initialize Event Router safely
-      this.eventRouter = new EventRouter();
-      if (typeof this.eventRouter.setRuntime === 'function') {
-        this.eventRouter.setRuntime(this);
-      }
-
-      // Initialize Extension Event Handler safely
-      this.extensionEvents = new ExtensionEventHandler(this);
-    } catch (err) {
-      console.error('❌ [BotRuntime] Critical initialization failure:', err.message);
-      // Ensure essential properties exist even on setup error
-      this.commands = this.commands || new Map();
-    }
+    this.db = db;
+    this.sessionManager = sessionManager;
+    this.messenger = new MessengerAdapter();
+    this.fbClient = null;
+    this.eventListener = null;
+    this.isReady = false;
   }
 
   /**
-   * Registers a command into the runtime command map.
-   * @param {Object} command 
-   * @returns {boolean}
+   * Initializes all core systems and starts the Meta integration client.
    */
-  registerCommand(command) {
+  async boot(eventRouter = null, groupEvents = null) {
     try {
-      if (!command || typeof command !== 'object') {
-        console.warn('⚠️ [BotRuntime] Attempted to register an invalid command object.');
+      Logger.info('RUNTIME', 'Booting BlueTone Bot system kernel...');
+
+      // 1. Initialize persistent storage
+      await this.db.init();
+
+      // 2. Setup event router & listener middleware
+      this.eventListener = new EventListener({ eventRouter, groupEvents });
+
+      // 3. Initialize FB Client with login listener wrapper
+      this.fbClient = new FBClient({
+        sessionManager: this.sessionManager,
+        onEvent: async (event, api) => {
+          if (!this.messenger.api) {
+            this.messenger.setApi(api);
+          }
+          await this.eventListener.handleEvent(event, api);
+        }
+      });
+
+      // 4. Authenticate and start MQTT listener
+      const loginSuccess = await this.fbClient.login();
+      if (!loginSuccess) {
+        Logger.error('RUNTIME', 'Kernel boot failed: Unable to establish Facebook connection.');
         return false;
       }
 
-      const rawName = String(command.name || '').trim().toLowerCase();
-      if (!rawName) {
-        console.warn('⚠️ [BotRuntime] Command registration failed: Missing or empty command name.');
-        return false;
-      }
-
-      if (typeof command.execute !== 'function') {
-        console.warn(`⚠️ [BotRuntime] Command registration failed: "${rawName}" is missing an execute function.`);
-        return false;
-      }
-
-      this.commands.set(rawName, command);
+      this.isReady = true;
+      Logger.info('RUNTIME', 'BlueTone Bot System Kernel initialized successfully!');
       return true;
     } catch (err) {
-      console.error('❌ [BotRuntime] Error registering command:', err.message);
+      Logger.error('RUNTIME', 'Fatal error during system boot:', err?.message || err);
       return false;
     }
   }
 
   /**
-   * Clears registered commands or runtime cache safely.
+   * Gracefully shuts down bot runtime and preserves session state.
    */
-  clearCommands() {
-    try {
-      this.commands.clear();
-    } catch (err) {
-      console.error('❌ [BotRuntime] Error clearing runtime commands:', err.message);
+  async shutdown() {
+    Logger.info('RUNTIME', 'Shutting down system kernel...');
+    if (this.fbClient) {
+      await this.fbClient.logout();
     }
+    this.isReady = false;
+    Logger.info('RUNTIME', 'System kernel offline.');
   }
 }
 
-export default BotRuntime;
+export const runtime = new Runtime();
+export default runtime;
