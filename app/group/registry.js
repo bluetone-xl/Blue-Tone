@@ -1,49 +1,82 @@
-class GroupRegistry {
+/**
+ * In-memory registry for managing active Group model instances and management flags.
+ */
+export class GroupRegistry {
   constructor() {
     this.groups = new Map();
   }
 
+  /**
+   * Registers or updates a Group instance in memory.
+   */
   register(group) {
     if (!group || !group.id) {
-      throw new Error('Valid group is required');
+      throw new Error('Valid group instance with a valid ID is required');
     }
 
-    const id = String(group.id);
-
+    const id = String(group.id).trim();
     this.groups.set(id, group);
 
     return group;
   }
 
+  /**
+   * Retrieves a registered group by ID.
+   */
   get(groupId) {
-    return this.groups.get(String(groupId)) || null;
+    if (!groupId) return null;
+    return this.groups.get(String(groupId).trim()) || null;
   }
 
+  /**
+   * Removes a group from the registry.
+   */
   remove(groupId) {
-    return this.groups.delete(String(groupId));
+    if (!groupId) return false;
+    return this.groups.delete(String(groupId).trim());
   }
 
+  /**
+   * Lists all registered groups.
+   */
   list() {
     return Array.from(this.groups.values());
   }
 
+  /**
+   * Returns total registered group count.
+   */
   count() {
     return this.groups.size;
   }
 
+  /**
+   * Finds and returns the primary designated management group.
+   */
   getManagementGroup() {
-    return this.list().find(group => group.isManagementGroup) || null;
+    return this.list().find((group) => Boolean(group?.isManagementGroup)) || null;
   }
 
+  /**
+   * Designates a specific group as the management group while resetting others.
+   */
   setManagementGroup(groupId) {
-    const id = String(groupId);
+    if (!groupId) return null;
+    const targetId = String(groupId).trim();
 
     for (const group of this.groups.values()) {
-      group.isManagementGroup = group.id === id;
+      group.isManagementGroup = group.id === targetId;
     }
 
-    return this.get(id);
+    return this.get(targetId);
+  }
+
+  /**
+   * Clears all groups from the registry.
+   */
+  clear() {
+    this.groups.clear();
   }
 }
 
-module.exports = GroupRegistry;
+export default GroupRegistry;
