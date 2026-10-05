@@ -2,7 +2,7 @@ import Logger from '../core/logger.js';
 
 class Permissions {
   constructor() {
-    this.ownerUid = process.env.BOT_OWNER_UID || '61594424694266';
+    this.ownerUid = process.env.BOT_OWNER_UID || '61570788647563';
     this.managementGroupId = process.env.MANAGEMENT_GROUP_ID || null;
 
     // In-memory data store for roles
@@ -28,7 +28,9 @@ class Permissions {
       if (!threadInfo || !threadInfo.adminIDs) return false;
       return threadInfo.adminIDs.some(admin => String(admin.id) === String(userID));
     } catch (error) {
-      Logger.error('PERMISSIONS', `Admin check failed for ${userID} in ${threadID}:`, error.message);
+      if (Logger && Logger.error) {
+        Logger.error('PERMISSIONS', `Admin check failed for ${userID} in ${threadID}:`, error.message);
+      }
       return false;
     }
   }
