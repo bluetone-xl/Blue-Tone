@@ -8,17 +8,21 @@ export default {
       return { text: '❌ Unauthorized: Only the owner can use this command.' };
     }
 
-    const caption = ctx.args.join(' ');
-    const imageUrl = ctx.quotedMessage?.imageUrl;
+    try {
+      const caption = ctx.args.join(' ').trim();
+      const imageUrl = ctx.quotedMessage?.imageUrl;
 
-    if (!caption && !imageUrl) {
-      return { text: '⚠️ Please provide text or reply to an image to post.' };
+      if (!caption && !imageUrl) {
+        return { text: '⚠️ Please provide text or reply to an image to post.' };
+      }
+
+      let response = `✅ Post Created Successfully!`;
+      if (caption) response += `\nCaption: ${caption}`;
+      if (imageUrl) response += `\nAttached Image: ${imageUrl}`;
+
+      return { text: response };
+    } catch (err) {
+      return { text: `❌ Failed to create post: ${err.message}` };
     }
-
-    let response = `✅ Post Created Successfully!`;
-    if (caption) response += `\nCaption: ${caption}`;
-    if (imageUrl) response += `\nAttached Image: ${imageUrl}`;
-
-    return { text: response };
   }
 };
