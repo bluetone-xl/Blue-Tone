@@ -8,11 +8,15 @@ export default {
       return { text: '❌ Unauthorized: Only the owner can use this command.' };
     }
 
-    const bioText = ctx.args.join(' ');
-    if (!bioText) {
-      return { text: '⚠️ Please provide a bio text. Example: !setbio Hello World' };
-    }
+    try {
+      const bioText = ctx.args.join(' ').trim();
+      if (!bioText) {
+        return { text: '⚠️ Please provide a bio text. Example: !setbio Hello World' };
+      }
 
-    return { text: `✅ Bio successfully updated to:\n"${bioText}"` };
+      return { text: `✅ Bio successfully updated to:\n"${bioText}"` };
+    } catch (err) {
+      return { text: `❌ Failed to update bio: ${err.message}` };
+    }
   }
 };
