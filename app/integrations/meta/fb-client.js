@@ -1,90 +1,64 @@
+import fs from 'fs';
 import login from 'fca-unofficial';
-import SessionManager from './session-manager.js';
 
-export class FBClient {
+export default class FBClient {
   constructor(runtime) {
     this.runtime = runtime;
-    this.sessionMgr = new SessionManager();
     this.api = null;
   }
 
   async start() {
-    const appState = await this.sessionMgr.loadAppState();
-    if (!appState) {
-      console.error('❌ No appstate.json found! Please place appstate.json in root directory.');
-      return;
-    }
-
-    const options = {
-      appState,
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    };
-
-    login(options, (err, api) => {
-      if (err) {
-        console.error('❌ Login Error:', err);
-        return;
+    return new Promise((resolve, reject) => {
+      let appStateData;
+      
+      try {
+        appStateData = JSON.parse(fs.readFileSync('appstate.json', 'utf8'));
+      } catch (err) {
+        console.error('Error reading appstate.json:', err.message);
+        return reject(err);
       }
 
-      this.api = api;
-      console.log('🚀 BlueTone Bot successfully logged into Facebook!');
-
-      api.setOptions({
-        listenEvents: true,
-        selfListen: false,
-        autoMarkDelivery: false,
+      const loginOptions = {
+        appState: appStateData,
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         forceLogin: true
-      });
+      };
 
-      this.sessionMgr.saveAppState(api.getAppState());
-
-      // Start listening to events
-      api.listenMqtt(async (err, event) => {
+      login(loginOptions, (err, api) => {
         if (err) {
-          // Quietly ignore temporary MQTT sequence check failures
-          return;
+          console.error('FB Login Failed:', err);
+          return reject(err);
         }
 
-        if (event) {
-          console.log('📩 Incoming Event Detected:', event.type);
-        }
+        this.api = api;
 
-        const mappedEvent = this.mapFcaEvent(event);
-        if (mappedEvent) {
-          mappedEvent.data.fbApi = this.getApiWrapper();
-          const response = await this.runtime.extensionEvents.handle(mappedEvent);
-          if (response && response.text) {
-            api.sendMessage(response.text, event.threadID);
+        api.setOptions({
+          listenEvents: true,
+          selfListen: false,
+          autoMarkDelivery: false,
+          forceLogin: true,
+          online: true
+        });
+
+        console.log('FB Client Logged In Successfully!');
+
+        api.listenMqtt((err, event) => {
+          if (err) {
+            if (err.error === 1357004 || err.message?.includes('Not logged in')) {
+              console.log("MQTT Bypass triggered (Error 1357004). Session retrying...");
+            } else {
+              console.error("MQTT Error:", err);
+            }
+            return;
           }
-        }
+
+          if (this.runtime && this.runtime.handleEvent) {
+            this.runtime.handleEvent(event, api);
+          }
+        });
+
+        resolve(api);
       });
     });
   }
-
-  mapFcaEvent(event) {
-    if (!event) return null;
-    if (event.type === 'message' || event.type === 'message_reply') {
-      return {
-        type: 'message',
-        data: {
-          senderId: event.senderID,
-          groupId: event.isGroup ? event.threadID : null,
-          body: event.body,
-          quotedMessage: event.messageReply ? { imageUrl: event.messageReply.attachments?.[0]?.url } : null
-        }
-      };
-    }
-    return null;
-  }
-
-  getApiWrapper() {
-    return {
-      addUserToGroup: (uid, threadId) => this.api?.addUserToGroup(uid, threadId),
-      changeGroupImage: (imagePath, threadId) => this.api?.changeGroupImage(imagePath, threadId),
-      changeThreadColor: (color, threadId) => this.api?.changeThreadColor(color, threadId),
-      changeNickname: (nickname, threadId, uid) => this.api?.changeNickname(nickname, threadId, uid)
-    };
-  }
 }
-
-export default FBClient;
