@@ -11,41 +11,61 @@ export default {
       return { text: '❌ Unauthorized: Only the Bot Owner can use global management commands.' };
     }
 
-    // Subcommand 1: Set Management Group (!global setmgmt)
-    if (args[0] === 'setmgmt') {
-      if (!groupId) return { text: '⚠️ Execute this command inside the group you want to set as Management Group.' };
-      
-      await db.query(
-        `INSERT INTO global_settings (key, value) VALUES ('mgmt_group', $1)
-         ON CONFLICT (key) DO UPDATE SET value = $1;`,
-        [groupId]
-      );
-      return { text: `🛡️ This group (${groupId}) is now registered as the **Bot Management Group**!` };
-    }
+    const subCommand = args[0]?.toLowerCase();
 
-    // Check if request is coming from Management Group or direct Owner private chat
-    const mgmtRes = await db.query("SELECT value FROM global_settings WHERE key = 'mgmt_group';");
-    const mgmtGroupId = mgmtRes.rows[0]?.value;
-
-    if (groupId && mgmtGroupId && groupId !== mgmtGroupId) {
-      return { text: '⚠️ Global control commands can only be executed from the designated **Management Group** or Direct Message.' };
-    }
-
-    // Subcommand 2: Global Notice Update (!global notice welcome <msg>)
-    if (args[0] === 'notice') {
-      const type = args[1]?.toLowerCase(); // welcome, leave, remove
-      const globalText = args.slice(2).join(' ');
-
-      if (!['welcome', 'leave', 'remove'].includes(type) || !globalText) {
-        return { text: `ℹ️ Usage: \`${prefix}global notice <welcome|leave|remove> <message>\`` };
+    try {
+      // Subcommand 1: Set Management Group (!global setmgmt)
+      if (subCommand === 'setmgmt') {
+        if (!groupId) {
+          return { text: '⚠️ Execute this command inside the group you want to set as Management Group.' };
+        }
+        
+        await db.query(
+          `INSERT INTO global_settings (key, value) VALUES ('mgmt_group', $1)
+           ON CONFLICT (key) DO UPDATE SET value = $1;`,
+          [groupId]
+        );
+        return { text: `🛡️ This group (${groupId}) is now registered as the **Bot Management Group**!` };
       }
 
-      const column = `${type}_msg`;
-      await db.query(`UPDATE groups SET ${column} = $1;`, [globalText]);
-      
-      return { text: `🌐 **Global Update Applied!** All groups now have updated **${type}** notice:\n"${globalText}"` };
-    }
+      // Check if request is coming from Management Group or direct Owner private chat
+      const mgmtRes = await db.query("SELECT value FROM global_settings WHERE key = 'mgmt_group';");
+      const mgmtGroupId = mgmtRes.rows[0]?.value;
 
-    return { text: `🌐 **Global Commands Help:**\n• \`${prefix}global setmgmt\` - Set current group as Management Group\n• \`${prefix}global notice <welcome|leave|remove> <msg>\` - Set notice for ALL groups` };
+      if (groupId && mgmtGroupId && groupId !== mgmtGroupId) {
+        return { text: '⚠️ Global control commands can only be executed from the designated **Management Group** or Direct Message.' };
+      }
+
+      // Subcommand 2: Global Notice Update (!global notice welcome <msg>)
+      if (subCommand === 'notice') {
+        const type = args[1]?.toLowerCase(); // welcome, leave, remove
+        const globalText = args.slice(2).join(' ');
+
+        const allowedTypes = ['welcome', 'leave', 'remove'];
+        if (!allowedTypes.includes(type) || !globalText) {
+          return { text: `ℹ️ Usage: \`${prefix}global notice <welcome|leave|remove> <message>\`` };
+        }
+
+        // Safe column mapping to avoid SQL injection
+        const columnMap = {
+          welcome: 'welcome_msg',
+          leave: 'leave_msg',
+          remove: 'remove_msg'
+        };
+
+        const targetColumn = columnMap[type];
+        await db.query(`UPDATE groups SET ${targetColumn} = $1;`, [globalText]);
+        
+        return { text: `🌐 **Global Update Applied!** All groups now have updated **${type}** notice:\n"${globalText}"` };
+      }
+
+      return { 
+        text: `🌐 **Global Commands Help:**\n` +
+              `• \`${prefix}global setmgmt\` - Set current group as Management Group\n` +
+              `• \`${prefix}global notice <welcome|leave|remove> <msg>\` - Set notice for ALL groups` 
+      };
+    } catch (err) {
+      return { text: `❌ Database / System Error: ${err.message}` };
+    }
   }
 };
