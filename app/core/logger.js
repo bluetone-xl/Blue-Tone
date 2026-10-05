@@ -1,68 +1,28 @@
 /**
- * Centralized Logging Utility for BlueTone Bot
- * Enforces structured console outputs and safe error reporting.
+ * Centralized Logger module for standardizing system-wide console output.
  */
-export const Logger = {
-  /**
-   * Logs informational messages.
-   * @param {string} scope - Module or component name
-   * @param {string} message - Message text
-   * @param {...any} args - Additional contextual data
-   */
-  info(scope, message, ...args) {
-    try {
-      const timestamp = new Date().toISOString().split('T')[1].slice(0, 8);
-      console.log(`\x1b[36m[${timestamp}] ℹ️ [${scope}]\x1b[0m ${message}`, ...args);
-    } catch {
-      console.log(`[${scope}] ${message}`);
-    }
-  },
+export class Logger {
+  static info(tag, message, ...args) {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [INFO] [${tag}]`, message, ...args);
+  }
 
-  /**
-   * Logs success events.
-   * @param {string} scope 
-   * @param {string} message 
-   * @param {...any} args 
-   */
-  success(scope, message, ...args) {
-    try {
-      const timestamp = new Date().toISOString().split('T')[1].slice(0, 8);
-      console.log(`\x1b[32m[${timestamp}] ✅ [${scope}]\x1b[0m ${message}`, ...args);
-    } catch {
-      console.log(`[${scope}] ${message}`);
-    }
-  },
+  static warn(tag, message, ...args) {
+    const timestamp = new Date().toISOString();
+    console.warn(`[${timestamp}] [WARN] [${tag}]`, message, ...args);
+  }
 
-  /**
-   * Logs warning messages.
-   * @param {string} scope 
-   * @param {string} message 
-   * @param {...any} args 
-   */
-  warn(scope, message, ...args) {
-    try {
-      const timestamp = new Date().toISOString().split('T')[1].slice(0, 8);
-      console.warn(`\x1b[33m[${timestamp}] ⚠️ [${scope}]\x1b[0m ${message}`, ...args);
-    } catch {
-      console.warn(`[${scope}] ${message}`);
-    }
-  },
+  static error(tag, message, ...args) {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [ERROR] [${tag}]`, message, ...args);
+  }
 
-  /**
-   * Logs system or runtime errors gracefully.
-   * @param {string} scope 
-   * @param {string|Error} error 
-   * @param {...any} args 
-   */
-  error(scope, error, ...args) {
-    try {
-      const timestamp = new Date().toISOString().split('T')[1].slice(0, 8);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`\x1b[31m[${timestamp}] ❌ [${scope}]\x1b[0m ${errorMessage}`, ...args);
-    } catch {
-      console.error(`[${scope}] ${error}`);
+  static debug(tag, message, ...args) {
+    if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+      const timestamp = new Date().toISOString();
+      console.debug(`[${timestamp}] [DEBUG] [${tag}]`, message, ...args);
     }
   }
-};
+}
 
 export default Logger;
