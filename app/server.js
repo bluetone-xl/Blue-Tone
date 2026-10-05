@@ -1,5 +1,7 @@
 import express from 'express';
 import { Logger, runtime, db } from './core/index.js';
+import { eventRouter } from './events/event-router.js';
+import { groupEvents } from './events/group-events.js';
 
 const app = express();
 app.use(express.json());
@@ -57,8 +59,8 @@ app.get('/health', (_req, res) => {
 const PORT = process.env.PORT || 3000;
 
 export const startServer = async () => {
-  // Boot system runtime kernel first
-  await runtime.boot();
+  // Boot system runtime kernel with eventRouter and groupEvents
+  await runtime.boot(eventRouter, groupEvents);
 
   app.listen(PORT, () => {
     Logger.info('SERVER', `🚀 BlueTone Bot server running on port ${PORT}`);
