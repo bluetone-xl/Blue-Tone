@@ -11,7 +11,7 @@ export default {
     // Check if the message is exactly "prefix" (case-insensitive)
     const cleanMessage = body.trim().toLowerCase();
     if (cleanMessage === 'prefix') {
-      const activePrefix = process.env.BOT_PREFIX || '!';
+      const activePrefix = process.env.DEFAULT_PREFIX || process.env.BOT_PREFIX || '!';
 
       const responseText = 
         `📌 Current Bot Prefix: [ ${activePrefix} ]\n` +
