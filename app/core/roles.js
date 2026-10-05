@@ -1,32 +1,75 @@
-const { isOwner } = require('./permissions');
+import { isOwner } from './permission.js';
 
-const ROLES = Object.freeze({
+export const ROLES = Object.freeze({
   OWNER: 'owner',
   GROUP_ADMIN: 'group_admin',
   MEMBER: 'member'
 });
 
-function getRole(uid, groupAdmins = []) {
-  if (isOwner(uid)) return ROLES.OWNER;
+/**
+ * Resolves the system role of a user based on their UID and group admin status.
+ * @param {string|number} uid 
+ * @param {Array} [groupAdmins=[]] 
+ * @returns {string} One of ROLES values
+ */
+export function getRole(uid, groupAdmins = []) {
+  try {
+    if (!uid) return ROLES.MEMBER;
 
-  const admins = new Set(groupAdmins.map(String));
+    const safeUid = String(uid).trim();
+    if (!safeUid) return ROLES.MEMBER;
 
-  if (admins.has(String(uid))) {
-    return ROLES.GROUP_ADMIN;
+    if (isOwner(safeUid)) {
+      return ROLES.OWNER;
+    }
+
+    const safeAdmins = Array.isArray(groupAdmins) ? groupAdmins : [];
+    const adminSet = new Set(safeAdmins.map(admin => String(admin).trim()));
+
+    if (adminSet.has(safeUid)) {
+      return ROLES.GROUP_ADMIN;
+    }
+
+    return ROLES.MEMBER;
+  } catch (err) {
+    console.error('❌ [RolesCore] Error resolving user role:', err.message);
+    return ROLES.MEMBER;
   }
-
-  return ROLES.MEMBER;
 }
 
-function canManageGroup(role) {
-  return role === ROLES.OWNER || role === ROLES.GROUP_ADMIN;
+/**
+ * Checks if a role has group management permissions.
+ * @param {string} role 
+ * @returns {boolean}
+ */
+export function canManageGroup(role) {
+  try {
+    if (!role) return false;
+    const normalizedRole = String(role).trim().toLowerCase();
+    return normalizedRole === ROLES.OWNER || normalizedRole === ROLES.GROUP_ADMIN;
+  } catch (err) {
+    console.error('❌ [RolesCore] Error in canManageGroup check:', err.message);
+    return false;
+  }
 }
 
-function canManageBot(role) {
-  return role === ROLES.OWNER;
+/**
+ * Checks if a role has global bot management permissions.
+ * @param {string} role 
+ * @returns {boolean}
+ */
+export function canManageBot(role) {
+  try {
+    if (!role) return false;
+    const normalizedRole = String(role).trim().toLowerCase();
+    return normalizedRole === ROLES.OWNER;
+  } catch (err) {
+    console.error('❌ [RolesCore] Error in canManageBot check:', err.message);
+    return false;
+  }
 }
 
-module.exports = {
+export default {
   ROLES,
   getRole,
   canManageGroup,
