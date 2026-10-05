@@ -1,0 +1,35 @@
+class BotConfig {
+  constructor() {
+    this.managementGroupID = process.env.MANAGEMENT_GROUP_ID || null;
+    this.notices = {
+      welcome: 'Welcome to the group!',
+      leave: 'A member has left the group.',
+      groupDestroyStart: 'Initiating non-admin member cleanup...',
+      groupDestroyComplete: 'Group cleanup operation completed.',
+      accessDeniedOwner: '⚠️ Restricted to Bot Owner.',
+      accessDeniedAdmin: '⚠️️ Restricted to Group Admins.'
+    };
+  }
+
+  setManagementGroupID(groupID) {
+    this.managementGroupID = groupID;
+  }
+
+  getManagementGroupID() {
+    return this.managementGroupID;
+  }
+
+  updateNotice(key, newNotice) {
+    if (this.notices.hasOwnProperty(key)) {
+      this.notices[key] = newNotice;
+      return true;
+    }
+    return false;
+  }
+
+  getNotice(key) {
+    return this.notices[key] || '';
+  }
+}
+
+export default new BotConfig();
