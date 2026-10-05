@@ -13,27 +13,55 @@ import securityCmd from '../commands/group-admin/group-security.js';
 import addCmd from '../commands/group-admin/member-mgmt.js';
 import requestsCmd from '../commands/group-admin/requests.js';
 
+/**
+ * Initializes and bootstraps the core bot runtime with all primary commands.
+ * @returns {BotRuntime|null} Configured runtime instance or null on failure.
+ */
 export function createRuntime() {
-  const runtime = new BotRuntime();
+  try {
+    const runtime = new BotRuntime();
 
-  // Owner Commands
-  runtime.registerCommand(setbioCmd);
-  runtime.registerCommand(postCmd);
-  runtime.registerCommand(globalCmd);
+    if (!runtime || typeof runtime.registerCommand !== 'function') {
+      throw new Error('Failed to instantiate valid BotRuntime instance.');
+    }
 
-  // Utility Commands
-  runtime.registerCommand(pingCmd);
-  runtime.registerCommand(prefixCmd);
-  runtime.registerCommand(helpCmd);
-  runtime.registerCommand(setnoticeCmd);
+    const commandModules = [
+      // Owner Commands
+      setbioCmd,
+      postCmd,
+      globalCmd,
 
-  // Group Admin & Security Commands
-  runtime.registerCommand(groupCmd);
-  runtime.registerCommand(securityCmd);
-  runtime.registerCommand(addCmd);
-  runtime.registerCommand(requestsCmd);
+      // Utility Commands
+      pingCmd,
+      prefixCmd,
+      helpCmd,
+      setnoticeCmd,
 
-  return runtime;
+      // Group Admin & Security Commands
+      groupCmd,
+      securityCmd,
+      addCmd,
+      requestsCmd
+    ];
+
+    commandModules.forEach((cmd, index) => {
+      try {
+        if (cmd) {
+          runtime.registerCommand(cmd);
+        } else {
+          console.warn(`⚠️ [Bootstrap] Command module at index ${index} is undefined or null.`);
+        }
+      } catch (cmdErr) {
+        console.error(`❌ [Bootstrap] Error registering command at index ${index}:`, cmdErr.message);
+      }
+    });
+
+    console.log('✅ [Bootstrap] Bot runtime initialized successfully with core commands.');
+    return runtime;
+  } catch (err) {
+    console.error('❌ [Bootstrap] Critical error creating runtime:', err.message);
+    return null;
+  }
 }
 
 export default createRuntime;
