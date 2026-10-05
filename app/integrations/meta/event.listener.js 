@@ -1,0 +1,98 @@
+import { Logger } from '../../core/logger.js';
+
+/**
+ * Event Listener service to normalize incoming FCA events and route them to application handlers.
+ */
+export class EventListener {
+  constructor({ eventRouter = null, groupEvents = null } = {}) {
+    this.eventRouter = eventRouter;
+    this.groupEvents = groupEvents;
+  }
+
+  /**
+   * Main entry point for processing incoming raw MQTT events from FBClient.
+   */
+  async handleEvent(rawEvent, api) {
+    if (!rawEvent || typeof rawEvent !== 'object') return null;
+
+    try {
+      const normalized = this._normalizeEvent(rawEvent);
+
+      switch (normalized.type) {
+        // Standard user or group text/attachment message
+        case 'message':
+        case 'message_reply':
+          if (this.eventRouter && typeof this.eventRouter.processMessage === 'function') {
+            return await this.eventRouter.processMessage(normalized, api);
+          }
+          break;
+
+        // Group thread events (Member Join, Leave, Title change)
+        case 'event':
+          return await this._handleGroupEvent(normalized, api);
+
+        // Emoji Reaction events
+        case 'message_reaction':
+          if (this.eventRouter && typeof this.eventRouter.processReaction === 'function') {
+            return await this.eventRouter.processReaction(normalized, api);
+          }
+          break;
+
+        default:
+          break;
+      }
+    } catch (err) {
+      Logger.error('EVENT_LISTENER', 'Error handling incoming event:', err?.message || err);
+    }
+
+    return null;
+  }
+
+  /**
+   * Sanitizes and structure-normalizes incoming FCA raw event object.
+   */
+  _normalizeEvent(event) {
+    return {
+      type: event.type,
+      threadId: String(event.threadID || event.threadId || '').trim(),
+      senderId: String(event.senderID || event.author || '').trim(),
+      messageId: String(event.messageID || event.messageId || '').trim(),
+      body: String(event.body || '').trim(),
+      attachments: Array.isArray(event.attachments) ? event.attachments : [],
+      mentions: event.mentions || {},
+      reaction: event.reaction || null,
+      logMessageType: event.logMessageType || null,
+      logMessageData: event.logMessageData || {},
+      raw: event
+    };
+  }
+
+  /**
+   * Internal sub-router for group-related lifecycle events.
+   */
+  async _handleGroupEvent(event, api) {
+    if (!this.groupEvents) return null;
+
+    const logType = event.logMessageType;
+
+    // Member Joined Group
+    if (logType === 'log:subscribe') {
+      const addedParticipants = event.logMessageData?.addedParticipants || [];
+      if (typeof this.groupEvents.handleMemberJoin === 'function') {
+        return await this.groupEvents.handleMemberJoin(event.threadId, addedParticipants, api);
+      }
+    }
+
+    // Member Left or Kicked from Group
+    if (logType === 'log:unsubscribe') {
+      const leftParticipantFbId = event.logMessageData?.leftParticipantFbId;
+      if (typeof this.groupEvents.handleMemberLeave === 'function') {
+        return await this.groupEvents.handleMemberLeave(event.threadId, leftParticipantFbId, api);
+      }
+    }
+
+    return null;
+  }
+}
+
+export default EventListener;
