@@ -1,84 +1,87 @@
-import db from '../database/connection.js';
+import { Logger } from '../core/logger.js';
+import groupService from '../group/group-service.js';
 
 /**
- * GroupEventHandler manages member join and leave event notifications.
+ * Handles real-time group lifecycle events such as member joins, leaves, and kicks.
  */
-export class GroupEventHandler {
+export class GroupEvents {
+  constructor({ service = groupService } = {}) {
+    this.service = service;
+  }
+
   /**
-   * Handles member join events and generates welcome messages.
-   * @param {Object} data 
-   * @returns {Promise<Object>} { text: string }
+   * Triggered when one or more members join or are added to a group thread.
+   *
+   * @param {string} threadId - The group thread ID.
+   * @param {Array<Object>} addedParticipants - Array of added user objects containing userFbId and fullName.
+   * @param {Object} api - FCA messenger client instance.
    */
-  async handleMemberJoin(data = {}) {
+  async handleMemberJoin(threadId, addedParticipants = [], api = null) {
+    if (!threadId || !Array.isArray(addedParticipants) || addedParticipants.length === 0) {
+      return false;
+    }
+
     try {
-      const groupId = data?.groupId ?? data?.threadId ?? null;
-      const joinedUids = Array.isArray(data?.joinedUids) ? data.joinedUids : [];
+      const cleanThreadId = String(threadId).trim();
+      Logger.info('GROUP_EVENTS', `Processing member join event for thread: ${cleanThreadId}`);
 
-      const safeGroupId = groupId ? String(groupId).trim() : null;
-      const uidList = joinedUids.length > 0 
-        ? joinedUids.map(uid => String(uid).trim()).filter(Boolean).join(', ')
-        : 'New Member';
+      for (const participant of addedParticipants) {
+        const userId = String(participant.userFbId || participant.id || '').trim();
+        const userName = participant.fullName || 'New Member';
 
-      let msgTemplate = '👋 Welcome {name} to {group}!';
+        // Register member in persistent database store
+        if (this.service && typeof this.service.addMember === 'function') {
+          await this.service.addMember(cleanThreadId, userId, { name: userName });
+        }
 
-      if (safeGroupId) {
-        try {
-          const res = await db.query('SELECT welcome_msg FROM groups WHERE thread_id = $1;', [safeGroupId]);
-          if (res?.rows?.[0]?.welcome_msg) {
-            msgTemplate = String(res.rows[0].welcome_msg);
-          }
-        } catch (dbErr) {
-          console.error('❌ [GroupEventHandler] DB Error fetching welcome_msg:', dbErr.message);
+        // Send Welcome Message if API client is supplied
+        if (api && typeof api.sendMessage === 'function') {
+          const welcomeText = `Welcome ${userName} to the group! 🎉\nPlease follow the group rules.`;
+          await api.sendMessage(welcomeText, cleanThreadId);
         }
       }
 
-      const text = msgTemplate
-        .replace(/{name}/g, uidList)
-        .replace(/{group}/g, safeGroupId || 'the group');
-
-      return { text };
+      return true;
     } catch (err) {
-      console.error('❌ [GroupEventHandler] Error handling member join:', err.message);
-      return { text: '👋 Welcome to the group!' };
+      Logger.error('GROUP_EVENTS', 'Error handling member join event:', err?.message || err);
+      return false;
     }
   }
 
   /**
-   * Handles member leave/remove events and generates departure messages.
-   * @param {Object} data 
-   * @returns {Promise<Object>} { text: string }
+   * Triggered when a member leaves or is removed from a group thread.
+   *
+   * @param {string} threadId - The group thread ID.
+   * @param {string} leftParticipantFbId - The Facebook user ID of the departing member.
+   * @param {Object} api - FCA messenger client instance.
    */
-  async handleMemberLeave(data = {}) {
+  async handleMemberLeave(threadId, leftParticipantFbId, api = null) {
+    if (!threadId || !leftParticipantFbId) return false;
+
     try {
-      const groupId = data?.groupId ?? data?.threadId ?? null;
-      const leftUid = data?.leftUid ?? data?.targetUid ?? null;
+      const cleanThreadId = String(threadId).trim();
+      const cleanUserId = String(leftParticipantFbId).trim();
 
-      const safeGroupId = groupId ? String(groupId).trim() : null;
-      const safeLeftUid = leftUid ? String(leftUid).trim() : 'A member';
+      Logger.info('GROUP_EVENTS', `User ${cleanUserId} left or was removed from thread: ${cleanThreadId}`);
 
-      let msgTemplate = '👋 Goodbye {name} from {group}!';
-
-      if (safeGroupId) {
-        try {
-          const res = await db.query('SELECT leave_msg FROM groups WHERE thread_id = $1;', [safeGroupId]);
-          if (res?.rows?.[0]?.leave_msg) {
-            msgTemplate = String(res.rows[0].leave_msg);
-          }
-        } catch (dbErr) {
-          console.error('❌ [GroupEventHandler] DB Error fetching leave_msg:', dbErr.message);
-        }
+      // Unregister member from persistent database store
+      if (this.service && typeof this.service.removeMember === 'function') {
+        await this.service.removeMember(cleanThreadId, cleanUserId);
       }
 
-      const text = msgTemplate
-        .replace(/{name}/g, safeLeftUid)
-        .replace(/{group}/g, safeGroupId || 'the group');
+      // Send goodbye/leave alert if API client is available
+      if (api && typeof api.sendMessage === 'function') {
+        const leaveText = `Member (${cleanUserId}) has left the group. 🚪`;
+        await api.sendMessage(leaveText, cleanThreadId);
+      }
 
-      return { text };
+      return true;
     } catch (err) {
-      console.error('❌ [GroupEventHandler] Error handling member leave:', err.message);
-      return { text: '👋 A member has left the group.' };
+      Logger.error('GROUP_EVENTS', 'Error handling member leave event:', err?.message || err);
+      return false;
     }
   }
 }
 
-export default GroupEventHandler;
+export const groupEvents = new GroupEvents();
+export default groupEvents;
