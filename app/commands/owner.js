@@ -1,48 +1,44 @@
-import db from '../database/connection.js';
-import { isBotOwner } from '../core/auth.js';
+import permissions from '../security/permissions.js';
+import botConfig from '../config/botConfig.js';
 
-export default function registerOwnerCommands(runtime) {
-  try {
-    if (!runtime || typeof runtime.registerCommand !== 'function') {
-      console.warn('⚠️ [OwnerCommands] Runtime or registerCommand method is missing.');
-      return;
+export default {
+  name: 'owner',
+  description: 'Shows bot owner info and allows owner to update social media links.',
+  category: 'utility',
+  aliases: ['social', 'socials'],
+  async execute({ api, event, args }) {
+    const { threadID, senderID, messageID } = event;
+
+    // Command to set socials (Owner Only): !owner set facebook https://...
+    if (args[0] && args[0].toLowerCase() === 'set') {
+      if (!permissions.isOwner(senderID)) {
+        return api.sendMessage('⚠️ Access Denied: Only the Bot Owner can set social links.', threadID, messageID);
+      }
+
+      const platform = args[1];
+      const url = args[2];
+
+      if (!platform || !url) {
+        return api.sendMessage('💡 Usage: `!owner set <facebook|github|telegram|whatsapp> <link>`', threadID, messageID);
+      }
+
+      botConfig.setSocial(platform, url);
+      return api.sendMessage(`✅ Successfully updated ${platform} link!`, threadID, messageID);
     }
 
-    runtime.registerCommand({
-      name: 'stats',
-      execute: async (ctx) => {
-        try {
-          if (!isBotOwner(ctx.senderId)) {
-            return { text: '❌ Unauthorized: Only Bot Owner can view system statistics.' };
-          }
+    // Default view for everyone: !owner
+    const socials = botConfig.getSocials();
+    const infoMsg = 
+      `👑 [BOT OWNER INFO]\n` +
+      `━━━━━━━━━━━━━━━━━━\n` +
+      `👤 Owner: BlueTone Admin\n\n` +
+      `🔗 Social Links:\n` +
+      `• Facebook: ${socials.facebook || 'Not set'}\n` +
+      `• GitHub: ${socials.github || 'Not set'}\n` +
+      `• Telegram: ${socials.telegram || 'Not set'}\n` +
+      `• WhatsApp: ${socials.whatsapp || 'Not set'}\n\n` +
+      `💡 Owner command to update: \n\`!owner set <platform> <link>\``;
 
-          const usersCount = await db.query('SELECT COUNT(*) FROM users;');
-          const groupsCount = await db.query('SELECT COUNT(*) FROM groups;');
-          const logsCount = await db.query('SELECT COUNT(*) FROM logs;');
-
-          const totalSeconds = Math.floor(process.uptime());
-          const hours = Math.floor(totalSeconds / 3600);
-          const minutes = Math.floor((totalSeconds % 3600) / 60);
-          const seconds = totalSeconds % 60;
-          const uptimeFormatted = `${hours}h ${minutes}m ${seconds}s`;
-
-          return {
-            text: `📊 **BlueTone System Statistics**\n\n` +
-                  `• **Registered Users:** ${usersCount.rows[0]?.count || 0}\n` +
-                  `• **Active Groups:** ${groupsCount.rows[0]?.count || 0}\n` +
-                  `• **Total Processed Logs:** ${logsCount.rows[0]?.count || 0}\n` +
-                  `• **Node.js Version:** \`${process.version}\`\n` +
-                  `• **Process Uptime:** ${uptimeFormatted}`
-          };
-        } catch (err) {
-          console.error('Error in stats command:', err);
-          return { text: `❌ Failed to fetch system statistics: ${err.message}` };
-        }
-      }
-    });
-
-    console.log('✅ [OwnerCommands] Owner commands registered successfully.');
-  } catch (err) {
-    console.error('❌ [OwnerCommands] Module initialization failed:', err.message);
+    return api.sendMessage(infoMsg, threadID, messageID);
   }
-}
+};
