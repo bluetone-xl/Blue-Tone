@@ -1,5 +1,5 @@
-import Permissions from '../security/permissions.js';
-import BotConfig from '../config/botConfig.js';
+import permissions from '../security/permissions.js';
+import botConfig from '../config/botConfig.js';
 import Logger from '../core/logger.js';
 
 export default {
@@ -13,7 +13,7 @@ export default {
 
     try {
       // 1. Strict Owner Permission Check
-      if (!Permissions.isOwner(senderID)) {
+      if (!permissions.isOwner(senderID)) {
         return api.sendMessage('⚠️ Access Denied: Restricted to the Bot Owner.', threadID, messageID);
       }
 
@@ -22,10 +22,10 @@ export default {
       // 2. Register current group as Management Control Room
       if (subCommand === 'set' || subCommand === 'register' || event.body.toLowerCase().startsWith('!setmanagement')) {
         if (!isGroup) {
-          return api.sendMessage('⚠️️ This command can only be executed within a group thread.', threadID, messageID);
+          return api.sendMessage('⚠️ This command can only be executed within a group thread.', threadID, messageID);
         }
 
-        BotConfig.setManagementGroupID(threadID);
+        botConfig.setManagementGroupID(threadID);
 
         const successMsg = 
           `✅ [MANAGEMENT CONTROL ROOM REGISTERED]\n` +
@@ -39,7 +39,7 @@ export default {
 
       // 3. Status Check
       if (subCommand === 'status' || subCommand === 'info') {
-        const currentMCR = BotConfig.getManagementGroupID();
+        const currentMCR = botConfig.getManagementGroupID();
         const statusMsg = 
           `📊 [MANAGEMENT CONTROL ROOM STATUS]\n` +
           `━━━━━━━━━━━━━━━━━━\n` +
