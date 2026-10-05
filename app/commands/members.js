@@ -11,7 +11,7 @@ export default {
     const globalPrefix = process.env.BOT_PREFIX || '!';
 
     try {
-      // কমান্ডটি কীভাবে ডাকা হয়েছে তা চেক করা (যেমন: !profile, !prefix, নাকি !members)
+      // Determine how the command was invoked (e.g., !profile, !prefix, or !members)
       const commandTrigger = event.body.substring(1).split(' ')[0].toLowerCase();
 
       // -------------------------------------------------------------
@@ -28,8 +28,8 @@ export default {
           targetUid = args[0];
         }
 
-        const userInfo = await api.getUserInfo(targetUid);
-        const user = userInfo[targetUid] || {};
+        const userInfoMap = await api.getUserInfo(targetUid);
+        const user = userInfoMap[targetUid] || {};
 
         const name = user.name || 'Facebook User';
         const isOwner = Permissions.isOwner(targetUid);
