@@ -4,7 +4,7 @@ export default {
   name: 'stats',
   aliases: ['botstats', 'status', 'uptime'],
   description: 'Displays current bot performance, memory usage, and uptime.',
-  role: 'user', // Anyone can run this command
+  role: 'user',
 
   async execute({ api, event }) {
     try {
