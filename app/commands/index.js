@@ -1,42 +1,65 @@
-import registerBuiltinCommands from './builtin.js';
-import registerWarningCommands from './warnings.js';
-import registerGroupAdminCommands from './group-admin.js';
-import registerOwnerCommands from './owner.js';
-import registerMemberCommands from './members.js';
-import registerOwnerProfileCommands from './owner-profile.js';
+import db from './app/database/connection.js';
+import { updateSchema } from './app/database/update-schema.js';
+import { loadAppState } from './app/database/appstate.js';
+import { BotRuntime } from './app/core/runtime.js';
+import { EventPipeline } from './app/events/index.js';
+import { Logger } from './app/core/logger.js';
 
 /**
- * Safely registers all module command handlers into the runtime system.
- * @param {Object} runtime - Core bot runtime instance.
+ * Main application bootstrap function.
  */
-export function registerAllCommands(runtime) {
-  if (!runtime) {
-    console.error('❌ [CommandRegistry] Critical Error: Runtime instance is undefined or null.');
-    return;
-  }
+async function bootstrap() {
+  Logger.info('BOOTSTRAP', '🚀 Initializing BlueTone Bot Application...');
 
-  const registries = [
-    { name: 'BuiltinCommands', fn: registerBuiltinCommands },
-    { name: 'WarningCommands', fn: registerWarningCommands },
-    { name: 'GroupAdminCommands', fn: registerGroupAdminCommands },
-    { name: 'OwnerCommands', fn: registerOwnerCommands },
-    { name: 'MemberCommands', fn: registerMemberCommands },
-    { name: 'OwnerProfileCommands', fn: registerOwnerProfileCommands }
-  ];
-
-  registries.forEach(({ name, fn }) => {
-    try {
-      if (typeof fn === 'function') {
-        fn(runtime);
-      } else {
-        console.warn(`⚠️ [CommandRegistry] ${name} is not a valid function.`);
-      }
-    } catch (err) {
-      console.error(`❌ [CommandRegistry] Failed to register ${name}:`, err.message);
+  try {
+    // 1. Database Connection & Schema Verification
+    Logger.info('DATABASE', 'Checking PostgreSQL database connection...');
+    const isConnected = await db.verifyConnection();
+    if (!isConnected) {
+      Logger.error('DATABASE', 'Failed to connect to the database. Retrying or halting start.');
+      process.exit(1);
     }
-  });
 
-  console.log('✅ [CommandRegistry] All command modules execution check completed.');
+    Logger.info('DATABASE', 'Ensuring database schemas and tables are up to date...');
+    await updateSchema();
+
+    // 2. Initialize Bot Runtime & Event Pipeline
+    Logger.info('RUNTIME', 'Initializing BotRuntime instance...');
+    const runtime = new BotRuntime();
+
+    Logger.info('EVENTS', 'Setting up EventPipeline...');
+    const eventPipeline = new EventPipeline(runtime);
+
+    // 3. Appstate & Session Verification
+    Logger.info('APPSTATE', 'Loading persisted Facebook appstate...');
+    const appstateData = await loadAppState();
+
+    if (!appstateData || (Array.isArray(appstateData) && appstateData.length === 0)) {
+      Logger.warn('APPSTATE', 'No active appstate found in DB. Waiting for extension or manual auth login.');
+    } else {
+      Logger.success('APPSTATE', 'Appstate successfully loaded into memory.');
+    }
+
+    // 4. Bind Global Services
+    global.botRuntime = runtime;
+    global.eventPipeline = eventPipeline;
+
+    Logger.success('BOOTSTRAP', '🎉 BlueTone Bot system is online and ready for incoming events!');
+
+  } catch (err) {
+    Logger.error('BOOTSTRAP', 'Fatal initialization error:', err.message);
+    process.exit(1);
+  }
 }
 
-export default registerAllCommands;
+// Global Process Defensive Fail-Safes (Prevent Termux Crash on Uncaught Errors)
+process.on('uncaughtException', (err) => {
+  Logger.error('UNCAUGHT_EXCEPTION', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  Logger.error('UNHANDLED_REJECTION', reason?.message || reason);
+});
+
+// Start the application
+bootstrap();
