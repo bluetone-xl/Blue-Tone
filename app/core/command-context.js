@@ -1,9 +1,14 @@
-const { getRole } = require('./roles');
-const { resolveGroupId } = require('./group-id-resolver');
+import { getRole } from './roles.js';
+import { resolveGroupId } from './group-id-resolver.js';
 
-function createCommandContext({
-  senderUid,
-  groupId,
+/**
+ * Creates a standardized command execution context.
+ * @param {Object} params
+ * @returns {Object} Command context object
+ */
+export function createCommandContext({
+  senderUid = null,
+  groupId = null,
   groupAdmins = [],
   command = '',
   args = [],
@@ -12,24 +17,42 @@ function createCommandContext({
   selectedGroupId = null,
   targetUid = null
 } = {}) {
-  const resolvedGroupId = resolveGroupId({ groupId });
-  const role = getRole(senderUid, groupAdmins);
+  try {
+    const resolvedGroupId = resolveGroupId({ groupId });
+    const safeAdmins = Array.isArray(groupAdmins) ? groupAdmins : [];
+    const role = getRole(senderUid, safeAdmins);
 
-  return {
-    senderUid: senderUid ? String(senderUid) : null,
-    targetUid: targetUid ? String(targetUid) : null,
-    groupId: resolvedGroupId,
-    role,
-    command: String(command).toLowerCase(),
-    args: Array.isArray(args) ? args : [],
-    raw: String(raw),
-    isManagementGroup: Boolean(isManagementGroup),
-    selectedGroupId: selectedGroupId
-      ? String(selectedGroupId)
-      : null
-  };
+    const safeArgs = Array.isArray(args) 
+      ? args.map(arg => String(arg ?? '')) 
+      : [];
+
+    return {
+      senderUid: senderUid ? String(senderUid).trim() : null,
+      targetUid: targetUid ? String(targetUid).trim() : null,
+      groupId: resolvedGroupId,
+      role: role || 'member',
+      command: String(command || '').trim().toLowerCase(),
+      args: safeArgs,
+      raw: String(raw || ''),
+      isManagementGroup: Boolean(isManagementGroup),
+      selectedGroupId: selectedGroupId ? String(selectedGroupId).trim() : null
+    };
+  } catch (err) {
+    console.error('❌ [CommandContext] Error creating context:', err.message);
+
+    // Fallback safe context object
+    return {
+      senderUid: senderUid ? String(senderUid).trim() : null,
+      targetUid: targetUid ? String(targetUid).trim() : null,
+      groupId: groupId ? String(groupId).trim() : null,
+      role: 'member',
+      command: String(command || '').trim().toLowerCase(),
+      args: Array.isArray(args) ? args : [],
+      raw: String(raw || ''),
+      isManagementGroup: Boolean(isManagementGroup),
+      selectedGroupId: selectedGroupId ? String(selectedGroupId).trim() : null
+    };
+  }
 }
 
-module.exports = {
-  createCommandContext
-};
+export default createCommandContext;
