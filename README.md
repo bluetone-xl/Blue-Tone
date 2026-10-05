@@ -2,9 +2,17 @@
 
 # 🤖 Blue-Tone Bot
 
-An advanced, modular Facebook Group Management and Automation Bot built with **Node.js** and **`fca-unofficial`**. Designed to handle group automation, bypass Meta MQTT restrictions, and manage persistent database storage seamlessly.
+### **An advanced, modular Facebook Group Management and Automation Bot.**
+
+---
+
+# 🍒 **Developer: Ahmed Rafeez** 🍒
+### **Lead System Architect & Core Developer**
+
+---
 
 ![NodeJS](https://img.shields.io/badge/node.js-v18%2B-green?style=for-the-badge&logo=node.js)
+![Developer](https://img.shields.io/badge/Developer-Ahmed%20Rafeez-ff007f?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-Active-brightgreen?style=for-the-badge)
 
