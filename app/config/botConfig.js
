@@ -7,7 +7,7 @@ class BotConfig {
       groupDestroyStart: 'Initiating non-admin member cleanup...',
       groupDestroyComplete: 'Group cleanup operation completed.',
       accessDeniedOwner: '⚠️ Restricted to Bot Owner.',
-      accessDeniedAdmin: '⚠️️ Restricted to Group Admins.'
+      accessDeniedAdmin: '⚠️ Restricted to Group Admins.'
     };
   }
 
