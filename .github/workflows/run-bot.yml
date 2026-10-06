@@ -1,16 +1,16 @@
 name: Run Blue-Tone Bot
 
-on: 
+on:
   workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *' # প্রতি ৩০ মিনিট পর পর এটি ট্রিগার হবে
+    - cron: '*/20 * * * *'
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out repository
+    - name: Checkout Repository
       uses: actions/checkout@v3
 
     - name: Set up Node.js
@@ -18,8 +18,11 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run: npm install
 
     - name: Start Bot
       run: node index.js
+      env:
+        ADMIN: '61594424694266'
+        PREFIX: '!'
