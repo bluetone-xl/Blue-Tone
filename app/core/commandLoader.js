@@ -10,12 +10,25 @@ class CommandLoader {
   }
 
   async loadCommands() {
+    this.commands.clear();
+    this.aliases.clear();
+
     const commandsPath = path.resolve(process.cwd(), 'app', 'commands');
+
     if (!fs.existsSync(commandsPath)) {
       fs.mkdirSync(commandsPath, { recursive: true });
+      Logger.warn('CMD_LOADER', 'Created app/commands directory.');
     }
 
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    const commandFiles = fs.readdirSync(commandsPath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+      .map((entry) => entry.name)
+      .sort();
+
+    if (commandFiles.length === 0) {
+      Logger.warn('CMD_LOADER', 'No command files found in app/commands.');
+      return;
+    }
 
     for (const file of commandFiles) {
       try {
@@ -24,31 +37,40 @@ class CommandLoader {
         const commandModule = await import(fileUrl);
         const command = commandModule.default;
 
-        if (command && command.name) {
-          this.commands.set(command.name.toLowerCase(), command);
+        if (!command || !command.name) {
+          Logger.warn('CMD_LOADER', `Skipped invalid command module: ${file}`);
+          continue;
+        }
 
-          if (command.aliases && Array.isArray(command.aliases)) {
-            command.aliases.forEach(alias => {
-              this.aliases.set(alias.toLowerCase(), command.name.toLowerCase());
-            });
+        this.commands.set(String(command.name).toLowerCase(), command);
+
+        if (Array.isArray(command.aliases)) {
+          for (const alias of command.aliases) {
+            this.aliases.set(String(alias).toLowerCase(), String(command.name).toLowerCase());
           }
         }
       } catch (err) {
-        Logger.error('CMD_LOAD_ERR', `Failed to load command ${file}: ${err.message}`);
+        Logger.error('CMD_LOADER', `Failed to load command ${file}:`, err.message || err);
       }
     }
 
-    Logger.info('CMD_LOADER', `Loaded ${this.commands.size} commands successfully.`);
+    Logger.info('CMD_LOADER', `Loaded ${this.commands.size} command(s).`);
   }
 
   getCommand(name) {
-    const cmdName = name.toLowerCase();
-    if (this.commands.has(cmdName)) {
-      return this.commands.get(cmdName);
+    if (!name || typeof name !== 'string') return null;
+
+    const key = name.toLowerCase();
+
+    if (this.commands.has(key)) {
+      return this.commands.get(key);
     }
-    if (this.aliases.has(cmdName)) {
-      return this.commands.get(this.aliases.get(cmdName));
+
+    if (this.aliases.has(key)) {
+      const target = this.aliases.get(key);
+      return this.commands.get(target);
     }
+
     return null;
   }
 
